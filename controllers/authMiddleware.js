@@ -1,6 +1,25 @@
 const passport = require('passport');
+const { Role } = require('@prisma/client')
 
-const isAuth = passport.authenticate('jwt', { session: false });
+function populateUser(req, res, next) {
+  passport.authenticate('jwt', { session: false }, (err, user, info) => {
+    if (err) {
+      return next(err);
+    }
+    if (user) {
+      req.user = user;
+    }
+    next();
+  })(req, res, next);
+}
+
+function isAuth(req, res, next) {
+  if(!req.user) {
+    return res.status(401).json({message: "Please log in"});
+  } else {
+    next();
+  }
+}
 
 /**
  * Only allow if NOT authenticated.
@@ -31,19 +50,19 @@ function isNotAuth(req, res, next) {
  * Admin‐only: first require a valid JWT, then check user.admin.
  * If you prefer, you can also inline this in your routes as [isAuth, isAdmin].
  */
-const isAdmin = [
-  isAuth,
-  (req, res, next) => {
-    if (req.user && req.user.admin) {
-      return next();
-    }
-    res.status(403).send('Not authorized as admin');
+function isAdmin(req, res, next) {
+  if(req.user && req.user.role === Role.ADMIN) {
+    return next();
+  } else {
+    return res.status(403).json({message: "You are not an Administrator!"});
   }
-];
+}
 
 
 
 module.exports = {
     isAuth,
     isNotAuth,
+    populateUser,
+    isAdmin,
 }
