@@ -17,12 +17,17 @@ const corsOptions = {
 indexRouter.options('/{*splat}', cors(corsOptions));
 //for handling more complex requests (i.e. headers, incoming json, put, post, delete etc.)
 
-indexRouter.post("/sign-up", authMiddleware.isNotAuth, indexController.signupPost);
+//populate user if there is a valid jwt
+indexRouter.use("/", authMiddleware.populateUser);
+
+/* indexRouter.post("/sign-up", authMiddleware.isNotAuth, indexController.signupPost); */
 
 indexRouter.post("/login", authMiddleware.isNotAuth, indexController.loginPost);
 
-indexRouter.get("/api", cors(corsOptions), authMiddleware.isAuth, indexController.exampleGet);
+indexRouter.get("/application", cors(corsOptions), authMiddleware.isAuth, authMiddleware.isAdmin, indexController.applicantsGet);
+indexRouter.get("/application/count", cors(corsOptions), authMiddleware.isAuth, authMiddleware.isAdmin, indexController.applicantCountGet);
 //cors middleware used here
+indexRouter.post("/application", cors(corsOptions), indexController.applicationPost);
 
 indexRouter.get("/{*splat}", indexController.error404);
 

@@ -1,4 +1,5 @@
 const { body, validationResult } = require("express-validator");
+const validator = require("validator");
 const db = require("../db/queries");
 const notFoundError = require("../errors/CustomNotFoundError");
 const bcrypt = require("bcryptjs");
@@ -37,8 +38,9 @@ const signupPost = [validateUser, async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await db.insertUser(username, hashedPassword);
         //user created so now create a JWT
-        const token = jwt.sign({sub: newUser.id}, process.env.JWT_SECRET, {
-            expiresIn: "1d",
+        const token = jwt.sign({id: newUser.id, username: newUser.username, role: newUser.role}, 
+            process.env.JWT_SECRET, {
+            expiresIn: "3d",
         });
         return res.status(201).json({ token });
     } catch(error) {
@@ -46,6 +48,8 @@ const signupPost = [validateUser, async (req, res, next) => {
         next(error);
     }
 }];
+
+
 
 //jwt logout is handled client side
 function loginPost(req, res, next) {
@@ -57,20 +61,78 @@ function loginPost(req, res, next) {
 
     // issue JWT
     const token = jwt.sign(
-      { sub: user.id },
+      { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: '3d' }
     );
 
-    return res.json({ token });
+    return res.status(200).json({ token });
   })(req, res, next);
 }
 
 //
-function exampleGet(req, res) {
-    console.log(req.user);
-    res.json({success: true});
+async function applicantsGet(req, res) {
+    const search = req.query.search || "";
+    if(search) {
+        const results = await db.searchApplications(search);
+        res.status(200).json(results);
+        return;
+    }
+    const applicants = await db.getAllApplications();
+    res.status(200).json(applicants);
+    return;
 }
+
+const validateApplication = [
+    body("email").trim().isEmail().withMessage("Invalid Email Entered"),
+    body("email").custom(value => {
+        if(!value.endsWith("@my.yorku.ca")) {
+            throw new Error("Not a YorkU Email!")
+        }
+        return true;
+    }), 
+    body("email").custom(async (value) => {
+        const applicant = await db.findByEmail(value);
+        if(applicant) {
+            throw new Error("E-Mail is already in use!")
+        }
+        return true;
+    }),
+    body("studentId").trim().isNumeric().isLength({min: 9, max: 9}).withMessage("Student ID must be 9 digits long"),
+    body("studentId").custom(async (value) => {
+        const applicant = await db.findByStudentId(value);
+        if(applicant) {
+            throw new Error("StudentId is already in use!")
+        }
+        return true;
+    }),
+    body("firstName").trim().isAlpha().withMessage("Invalid Name"),
+    body("lastName").trim().isAlpha().withMessage("Invalid Name"),
+    body("emailConsent").isBoolean({strict: true}).withMessage("Invalid Email preference"),
+    body("program").trim().notEmpty().withMessage("No Program Provided"),
+    body("studyYear").trim().notEmpty().isAlpha().withMessage("Invalid Study Year Provided"),
+];
+
+const applicationPost = [validateApplication, async (req, res) => {
+    const errors = validationResult(req);
+    if(!errors.isEmpty()) {
+        //error with application
+        return res.status(400).json({errors: errors.array()});
+    }
+    let {email, studentId, firstName, lastName, emailConsent, program, studyYear} = req.body;
+    let fullName = firstName + " " + lastName;
+    const applicant = await db.insertApplication(email, studentId, firstName, 
+                            lastName, emailConsent, program, studyYear, fullName);
+    res.status(201).json(applicant);
+    
+}];
+
+async function applicantCountGet(req, res) {
+    const count = await db.getApplicantCount();
+    res.status(200).json({count});
+    return;
+}
+
 function error404(req, res) {
     /* res.status(404).send("404 Not Found"); */
     throw new notFoundError("404 Not Found");
@@ -82,5 +144,7 @@ module.exports = {
     error404,
     signupPost,
     loginPost,
-    exampleGet
+    applicantsGet,
+    applicationPost,
+    applicantCountGet,
 }
