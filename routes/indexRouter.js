@@ -14,7 +14,7 @@ const corsOptionsAdmin = {
 
 //cors for the public STEM site
 const corsOptionsAll = {
-  origin: [process.env.FRONTEND_URL, "https://stemfellowshipyorku.ca", process.env.ADMIN_DASHBOARD_URL],
+  origin: [process.env.FRONTEND_URL, process.env.ADMIN_DASHBOARD_URL],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true,
   optionsSuccessStatus: 200,
