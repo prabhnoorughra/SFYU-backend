@@ -38,3 +38,9 @@ enum Role {
   USER
   ADMIN
 }
+
+model PageViewCounter {
+  key       String   @id
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}

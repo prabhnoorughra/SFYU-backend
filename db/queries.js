@@ -57,29 +57,98 @@ async function findByStudentId(studentId) {
     return applicant;
 }
 
-async function getAllApplications() {
-    const apps = await prisma.application.findMany();
-    return apps;
-}
-
-async function searchApplications(query) {
-    const results = await prisma.application.findMany({
-        where: {
-            OR: [
-                { email:     { contains: query, mode: 'insensitive' } },
-                { studentId: { contains: query } },
-                { firstName: { contains: query, mode: 'insensitive' } },
-                { lastName:  { contains: query, mode: 'insensitive' } },
-                { fullName:  { contains: query, mode: 'insensitive' } },
-            ],
-        }
+async function getAllApplications(skip = 0, take = 25, emailConsent = null, studyYear = null) {
+    if(studyYear && !validStudy(studyYear)) {
+        studyYear = null;
+    }
+    if(typeof(emailConsent) != "boolean") {
+        emailConsent = null;
+    }
+    const where = {
+        ...(emailConsent != null && { emailConsent }),
+        ...(studyYear != null && { studyYear }),
+    };
+    const applications = await prisma.application.findMany({
+        where,
+        skip,
+        take,
+        orderBy: {
+            submittedAt: "desc"
+        },
     });
-    return results;
+    const total = await prisma.application.count({
+        where,
+    });
+    return {applications, total};
 }
 
-async function getApplicantCount() {
+function validStudy(studyYear) {
+    return  studyYear === "First" ||
+            studyYear === "Second" ||
+            studyYear === "Third" ||
+            studyYear === "Fourth" ||
+            studyYear === "Fifth+";
+}
+
+async function searchApplications(query, skip = 0, take = 25, emailConsent = null, studyYear = null) {
+    if(studyYear && !validStudy(studyYear)) {
+        studyYear = null;
+    }
+    if(typeof(emailConsent) != "boolean") {
+        emailConsent = null;
+    }
+    const where = {
+        OR: [
+            { email:     { contains: query, mode: 'insensitive' } },
+            { studentId: { contains: query } },
+            { firstName: { contains: query, mode: 'insensitive' } },
+            { lastName:  { contains: query, mode: 'insensitive' } },
+            { fullName:  { contains: query, mode: 'insensitive' } },
+        ],
+        ...(emailConsent != null && { emailConsent }),
+        ...(studyYear != null && { studyYear }),
+    };
+
+    const applications = await prisma.application.findMany({
+        where,
+        skip,
+        take,
+        orderBy: {
+            submittedAt: "desc"
+        },
+    });
+    const total = await prisma.application.count({
+      where,
+    });
+
+    return {applications, total};
+}
+
+async function getTotalApplicantCount() {
     const count = await prisma.application.count();
     return count;
+}
+
+
+async function getPageViews(key) {
+    const data = await prisma.pageViewCounter.findUnique({
+        where: {key}
+    });
+    return data.count;
+}
+
+async function viewPage(key) {
+    await prisma.pageViewCounter.update({
+        where: {
+            key
+        },
+        data: {
+            count: {
+                increment: 1
+            }
+        }
+    });
+    return;
 }
 
 
@@ -90,6 +159,8 @@ module.exports = {
     findByStudentId,
     getAllApplications,
     insertApplication,
-    getApplicantCount,
+    getTotalApplicantCount,
     searchApplications,
+    viewPage,
+    getPageViews
 }
