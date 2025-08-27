@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "NODE_ENV=test && jest",
     "start": "node app.js",
     "seed": "node db/seed.js"
   },
@@ -33,6 +33,8 @@
     "validator": "^13.15.15"
   },
   "devDependencies": {
-    "prisma": "^6.13.0"
+    "jest": "^30.1.1",
+    "prisma": "^6.13.0",
+    "supertest": "^7.1.4"
   }
 }
