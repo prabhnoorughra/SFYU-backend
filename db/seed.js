@@ -5,24 +5,21 @@ const bcrypt = require("bcryptjs");
 
 async function main() {
   // ... you will write your Prisma Client queries here
-  await prisma.user.deleteMany();
   const hashedPassword = await bcrypt.hash(process.env.PASSWORD, 10);
   await prisma.user.create({
     data: {
       role: Role.ADMIN,
-      username: "psughra@uwaterloo.ca",
+      username: process.env.USERNAME,
       password: hashedPassword,
     }
   });
-  await prisma.user.create({
+
+  await prisma.pageViewCounter.create({
     data: {
-      role: Role.USER,
-      username: "prabhnoor.ughra@gmail.com",
-      password: hashedPassword,
+      key: "/"
     }
   });
-  const users = await prisma.user.findMany();
-  console.log(users);
+  
 }
 
 main()
