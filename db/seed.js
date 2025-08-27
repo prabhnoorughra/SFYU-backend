@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 async function main() {
   // ... you will write your Prisma Client queries here
   const hashedPassword = await bcrypt.hash(process.env.PASSWORD, 10);
-  await prisma.user.create({
+  /* await prisma.user.create({
     data: {
       role: Role.ADMIN,
       username: process.env.USERNAME,
@@ -18,7 +18,7 @@ async function main() {
     data: {
       key: "/"
     }
-  });
+  }); */
   
 }
 
