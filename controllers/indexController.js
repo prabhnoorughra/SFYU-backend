@@ -5,6 +5,7 @@ const notFoundError = require("../errors/CustomNotFoundError");
 const bcrypt = require("bcryptjs");
 const passport = require("passport");
 const jwt = require("jsonwebtoken");
+const {Role} = require("@prisma/client")
 //bcrypt for creating the hashed passwords, 
 //passport for passport.authenticate, jwt for creating and sending tokens
 
@@ -68,18 +69,65 @@ function loginPost(req, res, next) {
 
     return res.status(200).json({ token });
   })(req, res, next);
-}
+};
+
+function adminLoginPost(req, res, next) {
+  passport.authenticate('local', { session: false }, (err, user, info) => {
+    //error
+    if (err)   return next(err);
+    //not authenticated
+    if (!user) return res.status(401).json({ error: info.message });
+    if (user.role != Role.ADMIN) return res.status(401).json({error: "Admins Only"});
+
+    // issue JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '3d' }
+    );
+
+    return res.status(200).json({ token });
+  })(req, res, next);
+};
+
 
 //
 async function applicantsGet(req, res) {
     const search = req.query.search || "";
+    const take = +req.query.take || 25;
+    const page = +req.query.page || 1;
+    const skip = take * (page - 1);
+    let emailConsent = req.query.emailConsent;
+    if(emailConsent === "true") emailConsent = true;
+    if(emailConsent === "false") emailConsent = false;
+    if(emailConsent != true && emailConsent != false) {
+        emailConsent = null;
+    }
+    let studyYear = req.query.studyYear;
+
     if(search) {
-        const results = await db.searchApplications(search);
-        res.status(200).json(results);
+        const {applications, total} = await db.searchApplications(search, skip, take, emailConsent, studyYear);
+        res.status(200).json({
+            applications,
+            pagination: {
+                page,
+                take,
+                total,
+                totalPages: Math.ceil(total / take)
+            }
+        });
         return;
     }
-    const applicants = await db.getAllApplications();
-    res.status(200).json(applicants);
+    const {applications, total} = await db.getAllApplications(skip, take, emailConsent, studyYear);
+    res.status(200).json({
+        applications,
+        pagination: {
+            page,
+            take,
+            total,
+            totalPages: Math.ceil(total / take)
+        }
+    });
     return;
 }
 
@@ -98,7 +146,7 @@ const validateApplication = [
         }
         return true;
     }),
-    body("studentId").trim().isNumeric().isLength({min: 9, max: 9}).withMessage("Student ID must be 9 digits long"),
+    body("studentId").trim().isNumeric().isLength({min: 9, max: 9}).withMessage("Student ID must be 9 digits long!"),
     body("studentId").custom(async (value) => {
         const applicant = await db.findByStudentId(value);
         if(applicant) {
@@ -106,11 +154,11 @@ const validateApplication = [
         }
         return true;
     }),
-    body("firstName").trim().isAlpha().withMessage("Invalid Name"),
-    body("lastName").trim().isAlpha().withMessage("Invalid Name"),
-    body("emailConsent").isBoolean({strict: true}).withMessage("Invalid Email preference"),
-    body("program").trim().notEmpty().withMessage("No Program Provided"),
-    body("studyYear").trim().notEmpty().isAlpha().withMessage("Invalid Study Year Provided"),
+    body("firstName").trim().isAlpha().withMessage("Invalid Name!"),
+    body("lastName").trim().isAlpha().withMessage("Invalid Name!"),
+    body("emailConsent").isBoolean({strict: true}).withMessage("Invalid Email preference!"),
+    body("program").trim().notEmpty().withMessage("No Program Provided!"),
+    body("studyYear").trim().notEmpty().isAscii().withMessage("Invalid Study Year Provided!"),
 ];
 
 const applicationPost = [validateApplication, async (req, res) => {
@@ -128,8 +176,20 @@ const applicationPost = [validateApplication, async (req, res) => {
 }];
 
 async function applicantCountGet(req, res) {
-    const count = await db.getApplicantCount();
+    const count = await db.getTotalApplicantCount();
     res.status(200).json({count});
+    return;
+}
+
+async function viewHomePageGet(req, res) {
+    const count = await db.getPageViews("/");
+    res.status(200).json({count});
+    return;
+}
+
+async function viewHomePagePost(req, res) {
+    await db.viewPage("/");
+    res.status(200).end();
     return;
 }
 
@@ -140,6 +200,7 @@ function error404(req, res) {
 
 
 
+
 module.exports = {
     error404,
     signupPost,
@@ -147,4 +208,7 @@ module.exports = {
     applicantsGet,
     applicationPost,
     applicantCountGet,
+    adminLoginPost,
+    viewHomePageGet,
+    viewHomePagePost
 }

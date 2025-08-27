@@ -5,16 +5,22 @@ const authMiddleware = require("../controllers/authMiddleware");
 const cors = require("cors");
 //cors for enabling cors, will have to filter based on frontend domains during production
 
-const corsOptions = {
-  origin: "*",
-  //when we have our specific frontends that we want to allow you will need to make it
-  //an array of the links to them, i.e. origin: ['https://my-frontend.com','https://another-frontend.com']
+const corsOptionsAdmin = {
+  origin: process.env.ADMIN_DASHBOARD_URL,
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true,
   optionsSuccessStatus: 200,
 };
 
-indexRouter.options('/{*splat}', cors(corsOptions));
+//cors for the public STEM site
+const corsOptionsAll = {
+  origin: [process.env.FRONTEND_URL, process.env.ADMIN_DASHBOARD_URL],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+
+indexRouter.options('/{*splat}', cors(corsOptionsAll));
 //for handling more complex requests (i.e. headers, incoming json, put, post, delete etc.)
 
 //populate user if there is a valid jwt
@@ -22,14 +28,20 @@ indexRouter.use("/", authMiddleware.populateUser);
 
 /* indexRouter.post("/sign-up", authMiddleware.isNotAuth, indexController.signupPost); */
 
-indexRouter.post("/login", authMiddleware.isNotAuth, indexController.loginPost);
+indexRouter.get("/views", cors(corsOptionsAdmin), indexController.viewHomePageGet);
+indexRouter.post("/", cors(corsOptionsAll), indexController.viewHomePagePost);
 
-indexRouter.get("/application", cors(corsOptions), authMiddleware.isAuth, authMiddleware.isAdmin, indexController.applicantsGet);
-indexRouter.get("/application/count", cors(corsOptions), authMiddleware.isAuth, authMiddleware.isAdmin, indexController.applicantCountGet);
-//cors middleware used here
-indexRouter.post("/application", cors(corsOptions), indexController.applicationPost);
+//login route is not used, may use in the future if we want other executives or members to make accounts
+indexRouter.post("/login", cors(corsOptionsAll),authMiddleware.isNotAuth, indexController.loginPost);
 
-indexRouter.get("/{*splat}", indexController.error404);
+
+indexRouter.post("/adminlogin", cors(corsOptionsAdmin),authMiddleware.isNotAuth, indexController.adminLoginPost);
+
+indexRouter.get("/application", cors(corsOptionsAdmin), authMiddleware.isAuth, authMiddleware.isAdmin, indexController.applicantsGet);
+indexRouter.get("/application/count", cors(corsOptionsAdmin), authMiddleware.isAuth, authMiddleware.isAdmin, indexController.applicantCountGet);
+indexRouter.post("/application", cors(corsOptionsAll), indexController.applicationPost);
+
+indexRouter.use("/{*splat}", indexController.error404);
 
 
 
